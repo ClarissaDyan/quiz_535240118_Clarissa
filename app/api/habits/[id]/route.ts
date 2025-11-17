@@ -1,10 +1,10 @@
-// app/api/habits/[id]/route.ts
+
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// GET /api/habits/:id
+
 export async function GET(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -41,7 +41,6 @@ export async function GET(
   }
 }
 
-// PUT /api/habits/:id -> update name/description/completedDays
 export async function PUT(
   request: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -67,13 +66,12 @@ export async function PUT(
       );
     }
 
-    // Build update data object
     const updateData: any = {
       name,
       description: description || '',
     };
 
-    // Only update completedDays if provided
+  
     if (typeof completedDays === 'number') {
       updateData.completedDays = completedDays;
     }
@@ -99,7 +97,6 @@ export async function PUT(
   }
 }
 
-// DELETE /api/habits/:id
 export async function DELETE(
   request: Request,
   { params }: { params: Promise<{ id: string }> }

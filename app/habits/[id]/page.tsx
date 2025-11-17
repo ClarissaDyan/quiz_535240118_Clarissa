@@ -77,7 +77,6 @@ export default function HabitDetailPage() {
     fetchHabit();
   }, [id]);
 
-  // Fungsi untuk increment completedDays
   const completeToday = async () => {
     if (!habit) return;
 
@@ -98,7 +97,7 @@ export default function HabitDetailPage() {
       });
 
       if (response.ok) {
-        await fetchHabit(); // Refresh data
+        await fetchHabit(); 
         alert('✅ Habit berhasil diselesaikan untuk hari ini!');
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -112,7 +111,6 @@ export default function HabitDetailPage() {
     }
   };
 
-  // Fungsi untuk reset streak
   const resetStreak = async () => {
     if (!habit) return;
 

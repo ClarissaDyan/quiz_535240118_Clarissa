@@ -19,13 +19,11 @@ export default function HabitsPage() {
   const [loading, setLoading] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
   
-  // State untuk Edit
   const [showEditModal, setShowEditModal] = useState(false);
   const [editHabit, setEditHabit] = useState<Habit | null>(null);
   const [editName, setEditName] = useState('');
   const [editDescription, setEditDescription] = useState('');
 
-  // Fetch habits dari API
   const fetchHabits = async () => {
     try {
       setFetchError(null);
@@ -60,7 +58,6 @@ export default function HabitsPage() {
     fetchHabits();
   }, []);
 
-  // CREATE - Tambah habit baru
   const addHabit = async () => {
     if (newHabitName.trim() === '') {
       alert('Nama habit tidak boleh kosong!');
@@ -87,7 +84,7 @@ export default function HabitsPage() {
         console.log('Created habit:', newHabit);
         setNewHabitName('');
         setNewHabitDescription('');
-        await fetchHabits(); // Refresh list
+        await fetchHabits(); 
         alert('✅ Habit berhasil ditambahkan!');
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -101,7 +98,6 @@ export default function HabitsPage() {
     }
   };
 
-  // DELETE - Hapus habit
   const deleteHabit = async (id: number) => {
     if (!confirm('Apakah Anda yakin ingin menghapus habit ini?')) {
       return;
@@ -117,7 +113,7 @@ export default function HabitsPage() {
       console.log('Delete response status:', response.status);
 
       if (response.ok) {
-        await fetchHabits(); // Refresh list
+        await fetchHabits(); 
         alert('✅ Habit berhasil dihapus!');
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
@@ -129,7 +125,6 @@ export default function HabitsPage() {
     }
   };
 
-  // EDIT - Buka modal edit
   const openEditModal = (habit: Habit) => {
     setEditHabit(habit);
     setEditName(habit.name);
@@ -137,7 +132,6 @@ export default function HabitsPage() {
     setShowEditModal(true);
   };
 
-  // UPDATE - Simpan perubahan edit
   const saveEdit = async () => {
     if (!editHabit || editName.trim() === '') {
       alert('Nama habit tidak boleh kosong!');
@@ -161,7 +155,7 @@ export default function HabitsPage() {
 
       if (response.ok) {
         setShowEditModal(false);
-        await fetchHabits(); // Refresh list
+        await fetchHabits(); 
         alert('✅ Habit berhasil diupdate!');
       } else {
         const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));

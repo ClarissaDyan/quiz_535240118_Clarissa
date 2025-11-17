@@ -1,10 +1,9 @@
-// app/api/habits/route.ts
+
 import { NextResponse } from 'next/server';
 import { PrismaClient } from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-// GET /api/habits -> ambil semua habits
 export async function GET() {
   try {
     const habits = await prisma.habit.findMany({
@@ -23,7 +22,6 @@ export async function GET() {
   }
 }
 
-// POST /api/habits -> buat habit baru
 export async function POST(request: Request) {
   try {
     const body = await request.json();
