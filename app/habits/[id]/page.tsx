@@ -1,275 +1,349 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
-import { Container, Row, Col, Card, Button, Alert, Badge, Table} from 'react-bootstrap';
+import {
+  Container,
+  Row,
+  Col,
+  Card,
+  Button,
+  Alert,
+  Badge,
+  Table,
+} from 'react-bootstrap';
 
 interface Habit {
   id: number;
   name: string;
   description: string;
-  frequency: string;
   createdAt: string;
   completedDays: number;
 }
 
 export default function HabitDetailPage() {
   const params = useParams();
+  const id = params?.id as string;
+
   const [habit, setHabit] = useState<Habit | null>(null);
   const [loading, setLoading] = useState(true);
+  const [notFound, setNotFound] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [actionLoading, setActionLoading] = useState(false);
+
+  const fetchHabit = async () => {
+    if (!id) return;
+
+    setLoading(true);
+    setError(null);
+    setNotFound(false);
+
+    try {
+      console.log('Fetching habit with ID:', id);
+      
+      const res = await fetch(`/api/habits/${id}`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        cache: 'no-store',
+      });
+
+      console.log('Response status:', res.status);
+
+      if (res.status === 404) {
+        setNotFound(true);
+        return;
+      }
+
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(errorData.error || 'Gagal mengambil data habit');
+      }
+
+      const data: Habit = await res.json();
+      console.log('Fetched habit:', data);
+      setHabit(data);
+    } catch (err: any) {
+      console.error('Error fetching habit:', err);
+      setError(err.message || 'Terjadi kesalahan');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const savedHabits = localStorage.getItem('habits');
-    if (savedHabits) {
-      const habits: Habit[] = JSON.parse(savedHabits);
-      const foundHabit = habits.find(h => h.id === Number(params.id));
-      
-      if (foundHabit) {
-        setHabit(foundHabit);
-      }
-    }
-    setLoading(false);
-  }, [params.id]);
+    fetchHabit();
+  }, [id]);
 
-  const markAsCompleted = () => {
+  // Fungsi untuk increment completedDays
+  const completeToday = async () => {
     if (!habit) return;
 
-    const savedHabits = localStorage.getItem('habits');
-    if (savedHabits) {
-      const habits: Habit[] = JSON.parse(savedHabits);
-      const updatedHabits = habits.map(h => {
-        if (h.id === habit.id) {
-          return { ...h, completedDays: h.completedDays + 1 };
-        }
-        return h;
+    if (!confirm('Tandai habit ini sebagai selesai hari ini?')) {
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const response = await fetch(`/api/habits/${habit.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: habit.name,
+          description: habit.description,
+          completedDays: habit.completedDays + 1,
+        })
       });
-      
-      localStorage.setItem('habits', JSON.stringify(updatedHabits));
-      setHabit({ ...habit, completedDays: habit.completedDays + 1 });
-      
-      alert('🎉 Selamat! Habit berhasil diselesaikan hari ini!');
+
+      if (response.ok) {
+        await fetchHabit(); // Refresh data
+        alert('✅ Habit berhasil diselesaikan untuk hari ini!');
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        alert(`❌ Gagal menandai habit: ${errorData.error}`);
+      }
+    } catch (error: any) {
+      console.error('Error completing habit:', error);
+      alert(`❌ Terjadi kesalahan: ${error.message}`);
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  const resetProgress = () => {
+  // Fungsi untuk reset streak
+  const resetStreak = async () => {
     if (!habit) return;
 
-    if (confirm('Apakah Anda yakin ingin reset progress?')) {
-      const savedHabits = localStorage.getItem('habits');
-      if (savedHabits) {
-        const habits: Habit[] = JSON.parse(savedHabits);
-        const updatedHabits = habits.map(h => {
-          if (h.id === habit.id) {
-            return { ...h, completedDays: 0 };
-          }
-          return h;
-        });
-        
-        localStorage.setItem('habits', JSON.stringify(updatedHabits));
-        setHabit({ ...habit, completedDays: 0 });
+    if (!confirm('Yakin ingin reset streak ke 0?')) {
+      return;
+    }
+
+    setActionLoading(true);
+    try {
+      const response = await fetch(`/api/habits/${habit.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: habit.name,
+          description: habit.description,
+          completedDays: 0,
+        })
+      });
+
+      if (response.ok) {
+        await fetchHabit(); // Refresh data
+        alert('✅ Streak berhasil direset ke 0');
+      } else {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        alert(`❌ Gagal reset streak: ${errorData.error}`);
       }
+    } catch (error: any) {
+      console.error('Error resetting streak:', error);
+      alert(`❌ Terjadi kesalahan: ${error.message}`);
+    } finally {
+      setActionLoading(false);
     }
   };
 
-  if (!habit) {
+  if (loading) {
     return (
       <Container fluid className="p-4">
-        <Alert variant="danger" className="card-pink border-0 shadow" style={{ borderRadius: '25px' }}>
-          <div className="text-center p-4">
-            <i className="bi bi-exclamation-triangle-fill" style={{ fontSize: '64px', color: '#FF1493' }}></i>
-            <h4 className="text-pink mt-3 mb-2">Habit Tidak Ditemukan</h4>
-            <p className="text-muted">Habit dengan ID tersebut tidak ada di sistem.</p>
-            <Link href="/habits">
-              <Button className="btn-pink mt-3">
-                <i className="bi bi-arrow-left me-2"></i>
-                Kembali ke Dashboard
-              </Button>
-            </Link>
-          </div>
-        </Alert>
+        <p>Memuat data habit...</p>
       </Container>
     );
   }
 
-  const progressToGoal = Math.min((habit.completedDays / 21) * 100, 100);
+  if (notFound || !habit) {
+    return (
+      <Container fluid className="p-4">
+        <Row className="justify-content-center mt-5">
+          <Col md={8}>
+            <Card
+              className="text-center"
+              style={{
+                borderRadius: '25px',
+                border: 'none',
+                background: '#FFD1E8',
+                padding: '40px',
+              }}
+            >
+              <Card.Body>
+                <div
+                  style={{
+                    fontSize: '50px',
+                    color: '#FF1493',
+                    marginBottom: '20px',
+                  }}
+                >
+                  <i className="bi bi-exclamation-triangle-fill" />
+                </div>
+                <Card.Title
+                  style={{
+                    fontSize: '28px',
+                    fontWeight: 700,
+                    marginBottom: '10px',
+                  }}
+                >
+                  Habit Tidak Ditemukan
+                </Card.Title>
+                <Card.Text style={{ fontSize: '16px', color: '#555' }}>
+                  Habit dengan ID tersebut tidak ada di sistem.
+                </Card.Text>
+                <Link href="/habits">
+                  <Button
+                    style={{
+                      marginTop: '20px',
+                      padding: '12px 24px',
+                      borderRadius: '30px',
+                      backgroundColor: '#FF69B4',
+                      border: 'none',
+                      fontWeight: 'bold',
+                    }}
+                  >
+                    ← Kembali ke Dashboard
+                  </Button>
+                </Link>
+              </Card.Body>
+            </Card>
+          </Col>
+        </Row>
+      </Container>
+    );
+  }
 
   return (
     <Container fluid className="p-4">
       <div className="mb-4">
         <Link href="/habits">
-          <Button 
-            variant="outline-secondary" 
-            style={{ borderRadius: '15px', borderColor: '#FFB6D9', color: '#FF1493' }}
+          <Button
+            variant="outline-secondary"
+            style={{
+              borderRadius: '15px',
+              borderColor: '#FFB6D9',
+              color: '#FF1493',
+            }}
           >
-            <i className="bi bi-arrow-left me-2"></i>
+            <i className="bi bi-arrow-left me-2" />
             Kembali ke Dashboard
           </Button>
         </Link>
       </div>
 
-      <Row className="mb-4">
-        <Col>
-          <Card 
-            className="border-0 shadow-lg" 
-            style={{ 
-              borderRadius: '30px',
-              background: 'linear-gradient(135deg, #FF69B4 0%, #FF1493 100%)',
-              color: 'white'
+      {error && (
+        <Alert variant="danger" className="mb-4">
+          {error}
+        </Alert>
+      )}
+
+      <Row>
+        <Col md={8}>
+          <Card
+            style={{
+              borderRadius: '20px',
+              border: 'none',
+              boxShadow: '0 10px 20px rgba(0,0,0,0.05)',
             }}
           >
-            <Card.Body className="p-5">
-              <Row className="align-items-center">
-                <Col md={8}>
-                  <div className="d-flex align-items-center mb-3">
-                    <div style={{ fontSize: '48px', marginRight: '20px' }}>✨</div>
-                    <div>
-                      <h1 className="fw-bold mb-2">{habit.name}</h1>
-                      <p className="mb-0" style={{ fontSize: '18px', opacity: 0.9 }}>
-                        {habit.description || 'Tidak ada deskripsi'}
-                      </p>
-                    </div>
-                  </div>
-                </Col>
-                <Col md={4} className="text-center">
-                  <div style={{ 
-                    background: 'rgba(255,255,255,0.2)',
-                    borderRadius: '20px',
-                    padding: '20px'
-                  }}>
-                    <div style={{ fontSize: '48px', fontWeight: 'bold' }}>
-                      {habit.completedDays}
-                    </div>
-                    <div style={{ fontSize: '16px' }}>Hari Berhasil</div>
-                  </div>
-                </Col>
-              </Row>
+            <Card.Body>
+              <div className="d-flex justify-content-between align-items-start mb-3">
+                <div>
+                  <Card.Title
+                    style={{ fontSize: '26px', fontWeight: 'bold' }}
+                  >
+                    {habit.name}
+                  </Card.Title>
+                  <Card.Subtitle style={{ color: '#888' }}>
+                    Dibuat pada{' '}
+                    {new Date(habit.createdAt).toLocaleDateString('id-ID', {
+                      day: '2-digit',
+                      month: 'long',
+                      year: 'numeric',
+                    })}
+                  </Card.Subtitle>
+                </div>
+
+                <Badge
+                  bg="info"
+                  pill
+                  style={{
+                    fontSize: '14px',
+                    padding: '8px 14px',
+                    backgroundColor: '#FFB6D9',
+                    color: '#880E4F',
+                  }}
+                >
+                  {habit.completedDays} hari tercapai
+                </Badge>
+              </div>
+
+              <Card.Text style={{ fontSize: '16px', marginTop: '15px' }}>
+                {habit.description || (
+                  <span style={{ color: '#999' }}>
+                    Tidak ada deskripsi.
+                  </span>
+                )}
+              </Card.Text>
+
+              <hr />
+
+              {/* Action Buttons */}
+              <div className="d-grid gap-2 mt-4">
+                <Button
+                  variant="success"
+                  size="lg"
+                  onClick={completeToday}
+                  disabled={actionLoading}
+                >
+                  <i className="bi bi-check-circle-fill me-2"></i>
+                  {actionLoading ? 'Menyimpan...' : 'Selesai Hari Ini'}
+                </Button>
+
+                <Button
+                  variant="outline-danger"
+                  size="sm"
+                  onClick={resetStreak}
+                  disabled={actionLoading}
+                >
+                  <i className="bi bi-arrow-counterclockwise me-2"></i>
+                  Reset Streak
+                </Button>
+              </div>
             </Card.Body>
           </Card>
         </Col>
-      </Row>
 
-      <Row>
-        <Col lg={6} className="mb-4">
-          <Card className="card-purple border-0 shadow mb-4" style={{ borderRadius: '25px' }}>
-            <Card.Body className="p-4">
-              <h5 className="fw-bold mb-4" style={{ color: '#9D4EDD' }}>
-                <i className="bi bi-info-circle-fill me-2"></i>
-                Informasi Habit
-              </h5>
-              
-              <Table borderless className="mb-0">
+        <Col md={4}>
+          <Card
+            style={{
+              borderRadius: '20px',
+              border: 'none',
+              boxShadow: '0 10px 20px rgba(0,0,0,0.05)',
+            }}
+          >
+            <Card.Body>
+              <Card.Title
+                style={{ fontWeight: 'bold', marginBottom: '15px' }}
+              >
+                Progress Singkat
+              </Card.Title>
+              <Table borderless responsive>
                 <tbody>
                   <tr>
-                    <td>
-                      <Badge bg="" className="badge-purple">
-                        {habit.frequency === 'daily' ? 'Setiap Hari' : 
-                         habit.frequency === 'weekly' ? 'Setiap Minggu' : 
-                         'Setiap Bulan'}
-                      </Badge>
+                    <td>Total hari tercapai</td>
+                    <td className="text-end">
+                      <strong>{habit.completedDays}</strong>
                     </td>
                   </tr>
                   <tr>
-                    <td className="fw-bold" style={{ color: '#9D4EDD' }}>
-                      <i className="bi bi-calendar-plus me-2"></i>
-                      Dibuat pada
-                    </td>
-                    <td>{habit.createdAt}</td>
-                  </tr>
-                  <tr>
-                    <td className="fw-bold" style={{ color: '#9D4EDD' }}>
-                      <i className="bi bi-fire me-2"></i>
-                      Streak Saat Ini
-                    </td>
-                    <td>
-                      <Badge bg="danger" className="fs-6">
-                        🔥 {habit.completedDays} hari
-                      </Badge>
+                    <td>ID Habit</td>
+                    <td className="text-end">
+                      <strong>{habit.id}</strong>
                     </td>
                   </tr>
                 </tbody>
               </Table>
-            </Card.Body>
-          </Card>
-        </Col>
-
-        <Col lg={6}>
-          <Card 
-            className="border-0 shadow-lg mb-4" 
-            style={{ 
-              borderRadius: '25px',
-              background: 'linear-gradient(135deg, #FFF0F5 0%, #FFE4E9 100%)'
-            }}
-          >
-            <Card.Body className="text-center p-5">
-              <div style={{ fontSize: '80px', marginBottom: '20px' }}>
-                {habit.completedDays >= 21 ? '🏆' : habit.completedDays >= 7 ? '🌟' : '💪'}
-              </div>
-              <div style={{ fontSize: '72px', fontWeight: 'bold', color: '#FF1493', marginBottom: '10px' }}>
-                {habit.completedDays}
-              </div>
-              <p className="lead fw-bold text-pink mb-4">Hari Berhasil Diselesaikan</p>
-              
-              {habit.completedDays >= 21 && (
-                <Alert variant="success" className="border-0 shadow-sm">
-                  <i className="bi bi-trophy-fill me-2"></i>
-                  <strong>Achievement Unlocked!</strong> Kamu sudah konsisten 21 hari!
-                </Alert>
-              )}
-              
-              {habit.completedDays >= 7 && habit.completedDays < 21 && (
-                <Alert variant="info" className="border-0 shadow-sm" style={{ background: '#E6B0FF', border: 'none' }}>
-                  <i className="bi bi-star-fill me-2"></i>
-                  <strong>Keep Going!</strong> Kamu sudah 1 minggu konsisten!
-                </Alert>
-              )}
-
-              {habit.completedDays < 7 && habit.completedDays > 0 && (
-                <Alert variant="" className="card-blue border-0 shadow-sm">
-                  <i className="bi bi-emoji-smile-fill me-2"></i>
-                  <strong>Great Start!</strong> Terus pertahankan ya!
-                </Alert>
-              )}
-            </Card.Body>
-          </Card>
-
-          <Card className="card-pink border-0 shadow" style={{ borderRadius: '25px' }}>
-            <Card.Body className="p-4">
-              <h5 className="text-pink fw-bold mb-4">
-                <i className="bi bi-lightning-charge-fill me-2"></i>
-                Actions
-              </h5>
-              <div className="d-grid gap-3">
-                <Button 
-                  size="lg"
-                  onClick={markAsCompleted}
-                  style={{
-                    background: 'linear-gradient(135deg, #4CAF50 0%, #45A049 100%)',
-                    border: 'none',
-                    borderRadius: '15px',
-                    color: 'white',
-                    padding: '15px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  <i className="bi bi-check-circle-fill me-2"></i>
-                  Tandai Selesai Hari Ini
-                </Button>
-                <Button 
-                  variant="outline-warning"
-                  size="lg"
-                  onClick={resetProgress}
-                  style={{
-                    borderRadius: '15px',
-                    borderWidth: '2px',
-                    padding: '15px',
-                    fontWeight: 'bold'
-                  }}
-                >
-                  <i className="bi bi-arrow-clockwise me-2"></i>
-                  Reset Progress
-                </Button>
-              </div>
             </Card.Body>
           </Card>
         </Col>
